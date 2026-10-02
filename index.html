@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="h-full bg-slate-50">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>MediNode 臨床症狀診斷輔助系統</title>
+    
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        medical: {
+                            50: '#f0f7ff',
+                            100: '#e0effe',
+                            200: '#bae0fd',
+                            500: '#0284c7',
+                            600: '#0369a1',
+                            700: '#035388',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <style>
+        /* Touch and Custom Scrollbar Tweaks */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        
+        .glass-card {
+            background: rgba(255, 255, 255, 0.96);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(226, 232, 240, 0.9);
+        }
+
+        .symptom-card {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            -webkit-tap-highlight-color: transparent;
+        }
+        .symptom-card:active {
+            transform: scale(0.98);
+        }
+        .symptom-card.active {
+            border-color: #0284c7;
+            background-color: #f0f7ff;
+            box-shadow: 0 4px 14px -2px rgba(2, 132, 199, 0.15);
+        }
+
+        /* Responsive Mobile Sticky Diagnosis Bar Adjustment */
+        @media (max-width: 1023px) {
+            body {
+                padding-bottom: 80px;
+            }
+        }
+
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+            .print-only {
+                display: block !important;
+            }
+            body {
+                background: white;
+                padding-bottom: 0;
+            }
+        }
+    </style>
+</head>
+<body class="h-full font-sans text-slate-800 antialiased flex flex-col min-h-screen">
+
+    <!-- Navigation Header -->
+    <header class="no-print bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-14 sm:h-16">
+                <!-- System Logo & Title -->
+                <div class="flex items-center space-x-2.5 sm:space-x-3">
+                    <div class="p-2 sm:p-2.5 bg-gradient-to-tr from-medical-600 to-sky-400 text-white rounded-xl shadow-md flex items-center justify-center shrink-0">
+                        <i data-lucide="activity" class="w-5 h-5 sm:w-6 sm:h-6"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center gap-1.5 sm:gap-2">
+                            <h1 class="text-base sm:text-lg font-bold text-slate-900 tracking-tight">MediNode</h1>
+                            <span class="px-1.5 py-0.5 text-[10px] sm:text-xs font-semibold bg-medical-100 text-medical-800 rounded-full border border-medical-200">C4.5 RWD</span>
+                        </div>
+                        <p class="text-[11px] sm:text-xs text-slate-500 hidden sm:block">臨床上呼吸道症狀診斷與護理處置決策支援系統</p>
+                        <p class="text-[10px] text-slate-400 sm:hidden">臨床診斷輔助系統</p>
+                    </div>
+                </div>
+
+                <!-- Nurse Profile & Live Time -->
+                <div class="flex items-center space-x-2 sm:space-x-4">
+                    <div class="hidden md:flex flex-col text-right pr-3 border-r border-slate-200">
+                        <span id="liveClock" class="text-xs font-mono font-medium text-slate-600">2026-10-02 11:00:00</span>
+                        <span class="text-[10px] text-slate-400">系統即時運行中</span>
+                    </div>
+                    <div class="flex items-center space-x-2 sm:space-x-3 bg-slate-50 border border-slate-200 rounded-full py-1 px-2.5 sm:py-1.5 sm:px-3">
+                        <div class="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-medical-600 text-white flex items-center justify-center text-xs font-bold shadow-sm shrink-0">
+                            護
+                        </div>
+                        <div class="text-left text-xs">
+                            <p class="font-semibold text-slate-700 leading-none text-[11px] sm:text-xs">林雅婷 護理師</p>
+                            <p class="text-slate-400 text-[9px] sm:text-[10px] mt-0.5">急診與門診護理站</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-6 space-y-4 sm:space-y-6">
+        
+        <!-- Patient Context & Quick Fill Section -->
+        <section class="glass-card rounded-xl sm:rounded-2xl p-3.5 sm:p-5 shadow-sm border border-slate-200/80 no-print">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3 sm:mb-4 pb-2.5 border-b border-slate-100">
+                <div class="flex items-center space-x-2 text-slate-800">
+                    <i data-lucide="user-check" class="w-4 h-4 sm:w-5 sm:h-5 text-medical-600 shrink-0"></i>
+                    <h2 class="font-bold text-sm sm:text-base">病患基本資訊與檢測前紀錄</h2>
+                </div>
+                
+                <!-- Preset Buttons for Quick Mobile Access -->
+                <div class="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
+                    <button onclick="quickFillSample('strep')" class="px-2 sm:px-2.5 py-1 sm:py-1.5 text-[11px] sm:text-xs font-medium bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 rounded-lg transition-colors whitespace-nowrap flex items-center gap-1 shrink-0">
+                        <i data-lucide="zap" class="w-3 h-3 sm:w-3.5 sm:h-3.5"></i> 鏈球菌案例
+                    </button>
+                    <button onclick="quickFillSample('cold')" class="px-2 sm:px-2.5 py-1 sm:py-1.5 text-[11px] sm:text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 rounded-lg transition-colors whitespace-nowrap flex items-center gap-1 shrink-0">
+                        <i data-lucide="zap" class="w-3 h-3 sm:w-3.5 sm:h-3.5"></i> 感冒案例
+                    </button>
+                    <button onclick="quickFillSample('allergy')" class="px-2 sm:px-2.5 py-1 sm:py-1.5 text-[11px] sm:text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 rounded-lg transition-colors whitespace-nowrap flex items-center gap-1 shrink-0">
+                        <i data-lucide="zap" class="w-3 h-3 sm:w-3.5 sm:h-3.5"></i> 過敏案例
+                    </button>
+                    <button onclick="clearPatientForm()" class="px-2 sm:px-2.5 py-1 sm:py-1.5 text-[11px] sm:text-xs font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors whitespace-nowrap flex items-center gap-1 shrink-0">
+                        <i data-lucide="rotate-ccw" class="w-3 h-3 sm:w-3.5 sm:h-3.5"></i> 重置
+                    </button>
+                </div>
+            </div>
+
+            <!-- Patient Info Form Fields (Responsive Grid) -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3">
+                <div>
+                    <label for="patientId" class="block text-[11px] sm:text-xs font-semibold text-slate-500 mb-1">病歷號碼</label>
+                    <input type="text" id="patientId" value="P-20261002-09" class="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-medical-500 focus:border-medical-500 outline-none transition">
+                </div>
+                <div>
+                    <label for="patientName" class="block text-[11px] sm:text-xs font-semibold text-slate-500 mb-1">姓名</label>
+                    <input type="text" id="patientName" value="陳小明" class="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-medical-500 focus:border-medical-500 outline-none transition">
+                </div>
+                <div>
+                    <label for="patientGender" class="block text-[11px] sm:text-xs font-semibold text-slate-500 mb-1">性別</label>
+                    <select id="patientGender" class="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-medical-500 focus:border-medical-500 outline-none transition">
+                        <option value="男">男 (Male)</option>
+                        <option value="女">女 (Female)</option>
+                        <option value="其他">其他 (Other)</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="patientAge" class="block text-[11px] sm:text-xs font-semibold text-slate-500 mb-1">年齡</label>
+                    <input type="number" id="patientAge" value="34" class="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-medical-500 focus:border-medical-500 outline-none transition">
+                </div>
+                <div>
+                    <label for="vitalTemp" class="block text-[11px] sm:text-xs font-semibold text-slate-500 mb-1">耳溫 (°C)</label>
+                    <input type="number" step="0.1" id="vitalTemp" value="36.8" placeholder="36.5" class="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-medical-500 focus:border-medical-500 outline-none transition">
+                </div>
+                <div>
+                    <label for="vitalBP" class="block text-[11px] sm:text-xs font-semibold text-slate-500 mb-1">血壓 (mmHg)</label>
+                    <input type="text" id="vitalBP" value="120/80" placeholder="120/80" class="w-full px-2.5 py-1.5 text-xs border border-slate-300 rounded-lg focus:ring-2 focus:ring-medical-500 focus:border-medical-500 outline-none transition">
+                </div>
+            </div>
+        </section>
+
+        <!-- Core Assessment Grid (Symptoms Selection & Output Dashboard) -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
+            
+            <!-- Left Column: 5 Symptom Selector -->
+            <div class="lg:col-span-5 space-y-3 sm:space-y-4">
+                <div class="glass-card rounded-xl sm:rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200/80 flex flex-col h-full">
+                    <div class="flex items-center justify-between mb-3 pb-2.5 border-b border-slate-100">
+                        <div class="flex items-center space-x-2">
+                            <i data-lucide="clipboard-list" class="w-4 h-4 sm:w-5 sm:h-5 text-medical-600 shrink-0"></i>
+                            <h2 class="font-bold text-sm sm:text-base text-slate-800">症狀評估點檢 (Symptoms)</h2>
+                        </div>
+                        <button onclick="clearAllSymptoms()" class="text-xs text-slate-500 hover:text-red-600 transition-colors flex items-center gap-1 font-medium">
+                            <i data-lucide="trash-2" class="w-3.5 h-3.5"></i> 清除
+                        </button>
+                    </div>
+
+                    <p class="text-xs text-slate-500 mb-3 sm:mb-4">請開關下列 5 項臨床主要指標，系統將即時運行 C4.5 決策樹邏輯：</p>
+
+                    <!-- Symptom Cards (Touch Friendly & Responsive Padding) -->
+                    <div class="space-y-2.5 sm:space-y-3 flex-1">
+                        
+                        <!-- 1. 淋巴腺腫脹 (Lymph Node Swelling) -->
+                        <div id="card-swollenGlands" onclick="toggleSymptom('swollenGlands')" class="symptom-card cursor-pointer border border-slate-200 rounded-xl p-3 sm:p-3.5 flex items-center justify-between bg-white hover:border-slate-300 select-none min-h-[56px]">
+                            <div class="flex items-center space-x-3">
+                                <div class="p-2 sm:p-2.5 rounded-xl bg-purple-50 text-purple-600 border border-purple-100 shrink-0">
+                                    <i data-lucide="git-commit" class="w-4 h-4 sm:w-5 sm:h-5"></i>
+                                </div>
+                                <div>
+                                    <span class="font-bold text-xs sm:text-sm text-slate-800">淋巴腺腫脹</span>
+                                    <p class="text-[11px] sm:text-xs text-slate-400 mt-0.5">頸部或頷下淋巴結腫大或壓痛</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-2 shrink-0 pl-2">
+                                <span id="status-swollenGlands" class="text-xs font-semibold text-slate-400">否</span>
+                                <div class="w-11 h-6 bg-slate-200 rounded-full p-1 transition-colors duration-200 ease-in-out relative" id="switch-swollenGlands">
+                                    <div class="w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-200 ease-in-out" id="dot-swollenGlands"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 2. 發燒 (Fever) -->
+                        <div id="card-fever" onclick="toggleSymptom('fever')" class="symptom-card cursor-pointer border border-slate-200 rounded-xl p-3 sm:p-3.5 flex items-center justify-between bg-white hover:border-slate-300 select-none min-h-[56px]">
+                            <div class="flex items-center space-x-3">
+                                <div class="p-2 sm:p-2.5 rounded-xl bg-red-50 text-red-600 border border-red-100 shrink-0">
+                                    <i data-lucide="thermometer-snowflake" class="w-4 h-4 sm:w-5 sm:h-5"></i>
+                                </div>
+                                <div>
+                                    <span class="font-bold text-xs sm:text-sm text-slate-800">發燒</span>
+                                    <p class="text-[11px] sm:text-xs text-slate-400 mt-0.5">體溫 &gt; 37.5°C 或發冷寒顫感</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-2 shrink-0 pl-2">
+                                <span id="status-fever" class="text-xs font-semibold text-slate-400">否</span>
+                                <div class="w-11 h-6 bg-slate-200 rounded-full p-1 transition-colors duration-200 ease-in-out relative" id="switch-fever">
+                                    <div class="w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-200 ease-in-out" id="dot-fever"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 3. 喉嚨痛 (Sore Throat) -->
+                        <div id="card-soreThroat" onclick="toggleSymptom('soreThroat')" class="symptom-card cursor-pointer border border-slate-200 rounded-xl p-3 sm:p-3.5 flex items-center justify-between bg-white hover:border-slate-300 select-none min-h-[56px]">
+                            <div class="flex items-center space-x-3">
+                                <div class="p-2 sm:p-2.5 rounded-xl bg-amber-50 text-amber-600 border border-amber-100 shrink-0">
+                                    <i data-lucide="flame" class="w-4 h-4 sm:w-5 sm:h-5"></i>
+                                </div>
+                                <div>
+                                    <span class="font-bold text-xs sm:text-sm text-slate-800">喉嚨痛</span>
+                                    <p class="text-[11px] sm:text-xs text-slate-400 mt-0.5">咽喉部疼痛、吞嚥困難或灼熱感</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-2 shrink-0 pl-2">
+                                <span id="status-soreThroat" class="text-xs font-semibold text-slate-400">否</span>
+                                <div class="w-11 h-6 bg-slate-200 rounded-full p-1 transition-colors duration-200 ease-in-out relative" id="switch-soreThroat">
+                                    <div class="w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-200 ease-in-out" id="dot-soreThroat"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 4. 充血 (Congestion) -->
+                        <div id="card-congestion" onclick="toggleSymptom('congestion')" class="symptom-card cursor-pointer border border-slate-200 rounded-xl p-3 sm:p-3.5 flex items-center justify-between bg-white hover:border-slate-300 select-none min-h-[56px]">
+                            <div class="flex items-center space-x-3">
+                                <div class="p-2 sm:p-2.5 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 shrink-0">
+                                    <i data-lucide="droplet" class="w-4 h-4 sm:w-5 sm:h-5"></i>
+                                </div>
+                                <div>
+                                    <span class="font-bold text-xs sm:text-sm text-slate-800">充血</span>
+                                    <p class="text-[11px] sm:text-xs text-slate-400 mt-0.5">咽喉黏膜紅腫或鼻腔充血塞氣</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-2 shrink-0 pl-2">
+                                <span id="status-congestion" class="text-xs font-semibold text-slate-400">否</span>
+                                <div class="w-11 h-6 bg-slate-200 rounded-full p-1 transition-colors duration-200 ease-in-out relative" id="switch-congestion">
+                                    <div class="w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-200 ease-in-out" id="dot-congestion"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 5. 頭痛 (Headache) -->
+                        <div id="card-headache" onclick="toggleSymptom('headache')" class="symptom-card cursor-pointer border border-slate-200 rounded-xl p-3 sm:p-3.5 flex items-center justify-between bg-white hover:border-slate-300 select-none min-h-[56px]">
+                            <div class="flex items-center space-x-3">
+                                <div class="p-2 sm:p-2.5 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 shrink-0">
+                                    <i data-lucide="brain" class="w-4 h-4 sm:w-5 sm:h-5"></i>
+                                </div>
+                                <div>
+                                    <span class="font-bold text-xs sm:text-sm text-slate-800">頭痛</span>
+                                    <p class="text-[11px] sm:text-xs text-slate-400 mt-0.5">前額或全頭部持續性/鈍痛</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center space-x-2 shrink-0 pl-2">
+                                <span id="status-headache" class="text-xs font-semibold text-slate-400">否</span>
+                                <div class="w-11 h-6 bg-slate-200 rounded-full p-1 transition-colors duration-200 ease-in-out relative" id="switch-headache">
+                                    <div class="w-4 h-4 bg-white rounded-full shadow-md transform transition-transform duration-200 ease-in-out" id="dot-headache"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Diagnostic Output Dashboard & C4.5 Visual Logic -->
+            <div id="diagnosticSection" class="lg:col-span-7 space-y-4 sm:space-y-6 flex flex-col justify-between scroll-mt-20">
+                
+                <!-- Main Diagnostic Result Card -->
+                <div class="glass-card rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-md border border-slate-200 relative overflow-hidden flex-1 flex flex-col justify-between">
+                    
+                    <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+                        <div class="flex items-center space-x-2">
+                            <i data-lucide="stethoscope" class="w-5 h-5 text-medical-600 shrink-0"></i>
+                            <h2 class="font-bold text-sm sm:text-base text-slate-800">C4.5 模型推論診斷結果</h2>
+                        </div>
+                        <span id="riskBadge" class="hidden px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-wider">
+                            --
+                        </span>
+                    </div>
+
+                    <!-- Dynamic Output Container -->
+                    <div class="my-4 sm:my-6">
+                        
+                        <!-- EMPTY STATE (Requirement: Blank when no symptoms selected) -->
+                        <div id="emptyDiagnosticState" class="py-8 sm:py-12 px-4 text-center flex flex-col items-center justify-center">
+                            <div class="w-12 h-12 sm:w-16 sm:h-16 bg-slate-100 text-slate-400 rounded-full flex items-center justify-center mb-3 sm:mb-4">
+                                <i data-lucide="shield-alert" class="w-6 h-6 sm:w-8 sm:h-8"></i>
+                            </div>
+                            <h3 class="text-sm sm:text-base font-semibold text-slate-600 mb-1">等待輸入病患症狀...</h3>
+                            <p class="text-xs text-slate-400 max-w-sm">
+                                目前未勾選任何症狀項目。請在左側選擇病人出現的症狀以觸發 C4.5 分類推論。
+                            </p>
+                        </div>
+
+                        <!-- ACTIVE DIAGNOSIS RESULT (Hidden when no symptoms selected) -->
+                        <div id="activeDiagnosticResult" class="hidden space-y-4">
+                            <div class="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2 border-b border-slate-100 pb-3 sm:pb-4">
+                                <div>
+                                    <span class="text-[11px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-0.5">預測主要診斷 (Diagnosis)</span>
+                                    <h3 id="diagTitle" class="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                                        --
+                                    </h3>
+                                </div>
+                                <div class="text-left sm:text-right">
+                                    <span class="text-[10px] sm:text-xs text-slate-400 block">ICD-10 對應碼</span>
+                                    <span id="icdCode" class="font-mono text-xs sm:text-sm font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded inline-block">
+                                        --
+                                    </span>
+                                </div>
+                            </div>
+
+                            <!-- Diagnostic Guidance & Action Protocol -->
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                                <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-3 sm:p-3.5">
+                                    <div class="flex items-center gap-1.5 text-xs font-bold text-slate-700 mb-2">
+                                        <i data-lucide="check-circle-2" class="w-4 h-4 text-medical-600 shrink-0"></i>
+                                        護理指導與處置原則
+                                    </div>
+                                    <ul id="careProtocols" class="text-xs text-slate-600 space-y-1.5 list-disc list-inside">
+                                        <!-- Dynamic insertions -->
+                                    </ul>
+                                </div>
+                                <div class="bg-slate-50 border border-slate-200/80 rounded-xl p-3 sm:p-3.5">
+                                    <div class="flex items-center gap-1.5 text-xs font-bold text-slate-700 mb-2">
+                                        <i data-lucide="alert-circle" class="w-4 h-4 text-amber-600 shrink-0"></i>
+                                        臨床注意事項與轉診建議
+                                    </div>
+                                    <p id="clinicalNotes" class="text-xs text-slate-600 leading-relaxed">
+                                        --
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- Action Bar -->
+                    <div class="pt-3.5 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 no-print">
+                        <div class="text-[11px] text-slate-400 flex items-center gap-1 self-start sm:self-auto">
+                            <i data-lucide="info" class="w-3.5 h-3.5"></i>
+                            精確度：C4.5 (100% 訓練集擬合)
+                        </div>
+                        <div class="flex items-center space-x-2 w-full sm:w-auto">
+                            <button id="btnSaveRecord" disabled onclick="saveDiagnosisRecord()" class="w-full sm:w-auto px-4 py-2 bg-slate-300 text-slate-500 rounded-xl font-medium text-xs shadow-none cursor-not-allowed transition-all flex items-center justify-center gap-1.5 min-h-[40px]">
+                                <i data-lucide="bookmark-plus" class="w-4 h-4"></i> 紀錄診斷結果
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+
+                <!-- C4.5 Decision Path Visualizer Box -->
+                <div class="glass-card rounded-xl sm:rounded-2xl p-3.5 sm:p-4 shadow-sm border border-slate-200 bg-slate-900 text-white">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center space-x-2">
+                            <i data-lucide="cpu" class="w-4 h-4 text-sky-400 shrink-0"></i>
+                            <h3 class="text-xs font-bold text-sky-200 uppercase tracking-wider">C4.5 決策路徑追蹤器 (Tree Traversal)</h3>
+                        </div>
+                        <span class="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded font-mono hidden sm:inline-block">Gain Ratio Logic</span>
+                    </div>
+                    <div id="treePathDisplay" class="font-mono text-xs text-slate-300 p-2.5 bg-slate-950/80 rounded-lg border border-slate-800 min-h-[48px] flex items-center overflow-x-auto">
+                        <span class="text-slate-500 italic">系統為待命狀態。請勾選症狀以啟動動態節點追蹤...</span>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- History Log Section -->
+        <section class="glass-card rounded-xl sm:rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3 sm:mb-4 pb-2.5 border-b border-slate-100">
+                <div class="flex items-center space-x-2">
+                    <i data-lucide="history" class="w-4 h-4 sm:w-5 sm:h-5 text-medical-600 shrink-0"></i>
+                    <h2 class="font-bold text-sm sm:text-base text-slate-800">臨床評估歷史日誌 (Diagnosis Logs)</h2>
+                    <span id="logCountBadge" class="bg-slate-100 text-slate-600 text-xs px-2 py-0.5 rounded-full font-semibold">0 筆</span>
+                </div>
+                <div class="flex items-center space-x-2 no-print self-end sm:self-auto">
+                    <button onclick="exportHistoryCSV()" class="px-2.5 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg shadow-sm transition-colors flex items-center gap-1.5">
+                        <i data-lucide="download" class="w-3.5 h-3.5"></i> 匯出 CSV
+                    </button>
+                    <button onclick="window.print()" class="px-2.5 py-1.5 text-xs font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 rounded-lg shadow-sm transition-colors flex items-center gap-1.5">
+                        <i data-lucide="printer" class="w-3.5 h-3.5"></i> 列印
+                    </button>
+                </div>
+            </div>
+
+            <!-- Desktop History Table -->
+            <div class="hidden md:block overflow-x-auto">
+                <table class="w-full text-left text-xs text-slate-600">
+                    <thead class="bg-slate-50 text-slate-500 font-semibold uppercase border-b border-slate-200">
+                        <tr>
+                            <th class="px-3 py-2.5">評估時間</th>
+                            <th class="px-3 py-2.5">病歷號</th>
+                            <th class="px-3 py-2.5">姓名/性別/年齡</th>
+                            <th class="px-3 py-2.5">生命徵象</th>
+                            <th class="px-3 py-2.5">勾選症狀</th>
+                            <th class="px-3 py-2.5">診斷結果</th>
+                            <th class="px-3 py-2.5 text-right no-print">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyTableBody" class="divide-y divide-slate-100">
+                        <tr id="emptyLogRow">
+                            <td colspan="7" class="px-3 py-8 text-center text-slate-400 italic">
+                                尚未儲存任何診斷紀錄。評估完畢後請點擊「紀錄診斷結果」。
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Mobile History Cards View -->
+            <div id="mobileHistoryLogs" class="md:hidden space-y-2.5">
+                <div class="py-6 text-center text-slate-400 text-xs italic">
+                    尚未儲存任何診斷紀錄。
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Mobile Sticky Quick Diagnosis Summary Bar (visible on LG breakpoint and below) -->
+    <div id="mobileStickyBar" class="lg:hidden fixed bottom-0 left-0 right-0 bg-slate-900/95 backdrop-blur-md text-white border-t border-slate-800 p-3 z-40 no-print transition-transform duration-300 transform translate-y-full">
+        <div class="max-w-7xl mx-auto flex items-center justify-between gap-2">
+            <div class="min-w-0 flex-1">
+                <span class="text-[10px] text-sky-400 uppercase font-bold block">即時推論診斷</span>
+                <p id="mobileStickyTitle" class="text-xs font-bold truncate text-white">--</p>
+            </div>
+            <button onclick="scrollToDiagnosis()" class="px-3 py-1.5 bg-medical-600 hover:bg-medical-700 text-white rounded-lg text-xs font-medium shrink-0 flex items-center gap-1 shadow-md">
+                <i data-lucide="eye" class="w-3.5 h-3.5"></i> 查看詳情
+            </button>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="no-print mt-auto py-4 bg-white border-t border-slate-200 text-center text-xs text-slate-400">
+        <p>© 2026 MediNode Clinical Decision Support System · 基於 C4.5 機器學習算法模型</p>
+    </footer>
+
+    <!-- Application Logic Script -->
+    <script>
+        // Symptom State Management
+        const symptomsState = {
+            swollenGlands: false,
+            fever: false,
+            soreThroat: false,
+            congestion: false,
+            headache: false
+        };
+
+        // Medical Protocols Dictionary
+        const DIAGNOSTIC_PROTOCOLS = {
+            STREP: {
+                title: "鏈球菌性喉炎 (Streptococcal Pharyngitis)",
+                icd: "ICD-10: J02.0",
+                riskText: "高風險 (High)",
+                riskClass: "bg-red-100 text-red-700 border-red-200",
+                protocols: [
+                    "建議安排 Rapid Antigen Detection Test (RADT) 快速篩檢或喉嚨培養。",
+                    "依醫囑給予 Penicillin 或 Amoxicillin 等抗生素完整療程護理指導。",
+                    "指導患者注意個人衛生，衛教配戴口罩並自我隔離 24 小時直到抗生素生效。"
+                ],
+                notes: "需特別注意有無合併高燒、發疹（猩紅熱樣）、或是嚴重的吞嚥困難。衛教患者不可自行停藥以防併發急性風濕熱 (Rheumatic Fever)。"
+            },
+            COLD: {
+                title: "感冒 / 上呼吸道感染 (Common Cold)",
+                icd: "ICD-10: J00",
+                riskText: "中風險 (Moderate)",
+                riskClass: "bg-amber-100 text-amber-700 border-amber-200",
+                protocols: [
+                    "提供症狀支持性護理（解熱鎮痛劑、鼻充血緩解劑）。",
+                    "鼓勵患者多休息、每日補充水分 2000 mL 以上。",
+                    "指導以溫鹽水漱口減緩喉嚨不適。"
+                ],
+                notes: "多為病毒性感染，一般不需使用抗生素。衛教若發燒持續超過 3 天或出現呼吸急促，應立即複診。"
+            },
+            ALLERGY: {
+                title: "過敏性反應 / 過敏性鼻炎 (Allergy)",
+                icd: "ICD-10: J30.9",
+                riskText: "低風險 (Low)",
+                riskClass: "bg-emerald-100 text-emerald-700 border-emerald-200",
+                protocols: [
+                    "協助詢問過敏原暴露史（花粉、塵蟎、寵物毛屑等）。",
+                    "依醫囑衛教使用第二代抗組織胺 (H1-antihistamines) 或鼻噴劑。",
+                    "建議保持室內濕度 40%-50%，使用 HEPA 空氣清淨機。"
+                ],
+                notes: "症狀通常為發作性。若出現喘鳴音、唇舌腫脹或呼吸困難，需警惕急性過敏性休克 (Anaphylaxis) 並緊急處置。"
+            }
+        };
+
+        // History Records Store
+        let historyLogs = [];
+
+        // Initialize Lucide icons & real-time clock
+        document.addEventListener('DOMContentLoaded', () => {
+            lucide.createIcons();
+            updateClock();
+            setInterval(updateClock, 1000);
+        });
+
+        function updateClock() {
+            const now = new Date();
+            const timeStr = now.getFullYear() + '-' +
+                String(now.getMonth() + 1).padStart(2, '0') + '-' +
+                String(now.getDate()).padStart(2, '0') + ' ' +
+                String(now.getHours()).padStart(2, '0') + ':' +
+                String(now.getMinutes()).padStart(2, '0') + ':' +
+                String(now.getSeconds()).padStart(2, '0');
+            const el = document.getElementById('liveClock');
+            if (el) el.innerText = timeStr;
+        }
+
+        // Toggle Single Symptom
+        function toggleSymptom(key) {
+            symptomsState[key] = !symptomsState[key];
+            updateSymptomUI(key);
+            runC45DiagnosticEngine();
+        }
+
+        // Update Toggle Switch CSS/UI
+        function updateSymptomUI(key) {
+            const isActive = symptomsState[key];
+            const card = document.getElementById(`card-${key}`);
+            const switchBg = document.getElementById(`switch-${key}`);
+            const dot = document.getElementById(`dot-${key}`);
+            const statusText = document.getElementById(`status-${key}`);
+
+            if (isActive) {
+                card.classList.add('active');
+                switchBg.classList.replace('bg-slate-200', 'bg-medical-600');
+                dot.classList.add('translate-x-5');
+                statusText.innerText = '是';
+                statusText.classList.replace('text-slate-400', 'text-medical-600');
+            } else {
+                card.classList.remove('active');
+                switchBg.classList.replace('bg-medical-600', 'bg-slate-200');
+                dot.classList.remove('translate-x-5');
+                statusText.innerText = '否';
+                statusText.classList.replace('text-medical-600', 'text-slate-400');
+            }
+        }
+
+        // Clear All Symptoms
+        function clearAllSymptoms() {
+            Object.keys(symptomsState).forEach(key => {
+                symptomsState[key] = false;
+                updateSymptomUI(key);
+            });
+            runC45DiagnosticEngine();
+        }
+
+        /**
+         * C4.5 Decision Tree Classifier Core
+         */
+        function runC45DiagnosticEngine() {
+            const anySymptomSelected = Object.values(symptomsState).some(val => val === true);
+            
+            const emptyState = document.getElementById('emptyDiagnosticState');
+            const activeResult = document.getElementById('activeDiagnosticResult');
+            const btnSave = document.getElementById('btnSaveRecord');
+            const treePathDisplay = document.getElementById('treePathDisplay');
+            const mobileStickyBar = document.getElementById('mobileStickyBar');
+            const mobileStickyTitle = document.getElementById('mobileStickyTitle');
+
+            // Requirement: If no symptom selected, diagnosis area must be BLANK / EMPTY
+            if (!anySymptomSelected) {
+                emptyState.classList.remove('hidden');
+                activeResult.classList.add('hidden');
+                
+                btnSave.disabled = true;
+                btnSave.className = "w-full sm:w-auto px-4 py-2 bg-slate-300 text-slate-500 rounded-xl font-medium text-xs shadow-none cursor-not-allowed transition-all flex items-center justify-center gap-1.5 min-h-[40px]";
+                
+                treePathDisplay.innerHTML = `<span class="text-slate-500 italic">系統為待命狀態。請勾選症狀以啟動動態節點追蹤...</span>`;
+                
+                if (mobileStickyBar) {
+                    mobileStickyBar.classList.add('translate-y-full');
+                }
+                return;
+            }
+
+            // Show Result Panel
+            emptyState.classList.add('hidden');
+            activeResult.classList.remove('hidden');
+            
+            btnSave.disabled = false;
+            btnSave.className = "w-full sm:w-auto px-4 py-2 bg-medical-600 hover:bg-medical-700 text-white rounded-xl font-medium text-xs shadow-md transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95 min-h-[40px]";
+
+            let resultKey = "";
+            let treeTrace = "";
+
+            // C4.5 Node Traversal Logic
+            if (symptomsState.swollenGlands) {
+                resultKey = "STREP";
+                treeTrace = `<span class="text-purple-400 font-bold">[淋巴腺腫脹 = YES]</span> <i data-lucide="arrow-right" class="inline w-3 h-3 mx-1"></i> <span class="text-emerald-400 font-bold">【鏈球菌性喉炎】</span> (100% 擬合)`;
+            } else {
+                if (symptomsState.fever) {
+                    resultKey = "COLD";
+                    treeTrace = `<span class="text-slate-400">[淋巴腺腫脹 = NO]</span> <i data-lucide="arrow-right" class="inline w-3 h-3 mx-1"></i> <span class="text-red-400 font-bold">[發燒 = YES]</span> <i data-lucide="arrow-right" class="inline w-3 h-3 mx-1"></i> <span class="text-emerald-400 font-bold">【感冒】</span> (100% 擬合)`;
+                } else {
+                    resultKey = "ALLERGY";
+                    treeTrace = `<span class="text-slate-400">[淋巴腺腫脹 = NO]</span> <i data-lucide="arrow-right" class="inline w-3 h-3 mx-1"></i> <span class="text-slate-400">[發燒 = NO]</span> <i data-lucide="arrow-right" class="inline w-3 h-3 mx-1"></i> <span class="text-emerald-400 font-bold">【過敏】</span> (100% 擬合)`;
+                }
+            }
+
+            // Render Output
+            const data = DIAGNOSTIC_PROTOCOLS[resultKey];
+            document.getElementById('diagTitle').innerText = data.title;
+            document.getElementById('icdCode').innerText = data.icd;
+            
+            const badge = document.getElementById('riskBadge');
+            badge.classList.remove('hidden');
+            badge.className = `px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full text-[10px] sm:text-xs font-bold uppercase tracking-wider border ${data.riskClass}`;
+            badge.innerText = data.riskText;
+
+            const protocolUl = document.getElementById('careProtocols');
+            protocolUl.innerHTML = data.protocols.map(p => `<li>${p}</li>`).join('');
+
+            document.getElementById('clinicalNotes').innerText = data.notes;
+
+            treePathDisplay.innerHTML = treeTrace;
+            
+            if (mobileStickyBar && mobileStickyTitle) {
+                mobileStickyTitle.innerText = data.title;
+                mobileStickyBar.classList.remove('translate-y-full');
+            }
+
+            lucide.createIcons();
+        }
+
+        function scrollToDiagnosis() {
+            const el = document.getElementById('diagnosticSection');
+            if (el) {
+                el.scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+
+        // Quick Fill Sample Scenarios
+        function quickFillSample(type) {
+            clearAllSymptoms();
+            if (type === 'strep') {
+                document.getElementById('patientName').value = "王大明";
+                document.getElementById('vitalTemp').value = "38.8";
+                symptomsState.swollenGlands = true;
+                symptomsState.fever = true;
+                symptomsState.soreThroat = true;
+            } else if (type === 'cold') {
+                document.getElementById('patientName').value = "李小華";
+                document.getElementById('vitalTemp').value = "37.9";
+                symptomsState.swollenGlands = false;
+                symptomsState.fever = true;
+                symptomsState.soreThroat = true;
+                symptomsState.congestion = true;
+                symptomsState.headache = true;
+            } else if (type === 'allergy') {
+                document.getElementById('patientName').value = "張美麗";
+                document.getElementById('vitalTemp').value = "36.5";
+                symptomsState.swollenGlands = false;
+                symptomsState.fever = false;
+                symptomsState.congestion = true;
+                symptomsState.headache = true;
+            }
+
+            Object.keys(symptomsState).forEach(k => updateSymptomUI(k));
+            runC45DiagnosticEngine();
+        }
+
+        function clearPatientForm() {
+            document.getElementById('patientId').value = "P-" + Math.floor(Math.random()*899999 + 100000);
+            document.getElementById('patientName').value = "";
+            document.getElementById('patientAge').value = "";
+            document.getElementById('vitalTemp').value = "";
+            document.getElementById('vitalBP').value = "";
+            clearAllSymptoms();
+        }
+
+        // Save Diagnosis Record to History
+        function saveDiagnosisRecord() {
+            const anySymptomSelected = Object.values(symptomsState).some(val => val === true);
+            if (!anySymptomSelected) return;
+
+            const pId = document.getElementById('patientId').value || '未填寫';
+            const pName = document.getElementById('patientName').value || '匿名';
+            const pGender = document.getElementById('patientGender').value;
+            const pAge = document.getElementById('patientAge').value ? `${document.getElementById('patientAge').value}歲` : '--';
+            const vTemp = document.getElementById('vitalTemp').value ? `${document.getElementById('vitalTemp').value}°C` : '--';
+            const vBP = document.getElementById('vitalBP').value || '--';
+
+            const activeSymptoms = [];
+            if (symptomsState.swollenGlands) activeSymptoms.push('淋巴腺腫脹');
+            if (symptomsState.fever) activeSymptoms.push('發燒');
+            if (symptomsState.soreThroat) activeSymptoms.push('喉嚨痛');
+            if (symptomsState.congestion) activeSymptoms.push('充血');
+            if (symptomsState.headache) activeSymptoms.push('頭痛');
+
+            const resultTitle = document.getElementById('diagTitle').innerText;
+
+            const logEntry = {
+                id: Date.now(),
+                time: new Date().toLocaleTimeString('zh-TW', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }),
+                patientId: pId,
+                patientInfo: `${pName} (${pGender}, ${pAge})`,
+                vitals: `體溫:${vTemp} | BP:${vBP}`,
+                symptoms: activeSymptoms.join(', '),
+                diagnosis: resultTitle
+            };
+
+            historyLogs.unshift(logEntry);
+            renderHistoryTable();
+        }
+
+        // Render History Logs Table & Mobile Cards
+        function renderHistoryTable() {
+            const tbody = document.getElementById('historyTableBody');
+            const mobileContainer = document.getElementById('mobileHistoryLogs');
+            const countBadge = document.getElementById('logCountBadge');
+            countBadge.innerText = `${historyLogs.length} 筆`;
+
+            if (historyLogs.length === 0) {
+                tbody.innerHTML = `
+                    <tr id="emptyLogRow">
+                        <td colspan="7" class="px-3 py-8 text-center text-slate-400 italic">
+                            尚未儲存任何診斷紀錄。評估完畢後請點擊「紀錄診斷結果」。
+                        </td>
+                    </tr>`;
+                mobileContainer.innerHTML = `
+                    <div class="py-6 text-center text-slate-400 text-xs italic">
+                        尚未儲存任何診斷紀錄。
+                    </div>`;
+                return;
+            }
+
+            // Desktop Table Rows
+            tbody.innerHTML = historyLogs.map(log => `
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="px-3 py-2.5 font-mono text-slate-500">${log.time}</td>
+                    <td class="px-3 py-2.5 font-mono font-semibold text-slate-700">${log.patientId}</td>
+                    <td class="px-3 py-2.5 font-medium text-slate-800">${log.patientInfo}</td>
+                    <td class="px-3 py-2.5 text-slate-500">${log.vitals}</td>
+                    <td class="px-3 py-2.5">
+                        <span class="inline-block max-w-[180px] truncate bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[11px]" title="${log.symptoms}">
+                            ${log.symptoms}
+                        </span>
+                    </td>
+                    <td class="px-3 py-2.5 font-bold text-medical-800">${log.diagnosis}</td>
+                    <td class="px-3 py-2.5 text-right no-print">
+                        <button onclick="deleteLog(${log.id})" class="text-slate-400 hover:text-red-600 transition-colors">
+                            <i data-lucide="trash" class="w-3.5 h-3.5 inline"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+
+            // Mobile Card Format
+            mobileContainer.innerHTML = historyLogs.map(log => `
+                <div class="bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs space-y-1.5 relative">
+                    <div class="flex items-center justify-between pb-1.5 border-b border-slate-200">
+                        <span class="font-bold text-slate-800">${log.patientInfo}</span>
+                        <span class="font-mono text-[10px] text-slate-400">${log.time}</span>
+                    </div>
+                    <div class="flex justify-between text-slate-600">
+                        <span>病歷號: <strong class="font-mono">${log.patientId}</strong></span>
+                        <span>${log.vitals}</span>
+                    </div>
+                    <div class="text-slate-500 text-[11px]">
+                        症狀: <span class="text-slate-700">${log.symptoms}</span>
+                    </div>
+                    <div class="pt-1 flex items-center justify-between">
+                        <span class="font-bold text-medical-800">${log.diagnosis}</span>
+                        <button onclick="deleteLog(${log.id})" class="text-red-500 p-1">
+                            <i data-lucide="trash" class="w-3.5 h-3.5"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+
+            lucide.createIcons();
+        }
+
+        function deleteLog(id) {
+            historyLogs = historyLogs.filter(item => item.id !== id);
+            renderHistoryTable();
+        }
+
+        // CSV Export Feature
+        function exportHistoryCSV() {
+            if (historyLogs.length === 0) {
+                alert("目前無歷史紀錄可供匯出！");
+                return;
+            }
+
+            let csvContent = "data:text/csv;charset=utf-8,\uFEFF";
+            csvContent += "評估時間,病歷號,病患資訊,生命徵象,勾選症狀,診斷結果\n";
+
+            historyLogs.forEach(log => {
+                csvContent += `"${log.time}","${log.patientId}","${log.patientInfo}","${log.vitals}","${log.symptoms}","${log.diagnosis}"\n`;
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `MediNode_Diagnosis_Logs_${new Date().toISOString().slice(0,10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
